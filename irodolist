@@ -1,5 +1,3 @@
-#! /usr/bin/env zsh
-
 function _irodolist::is_zcl_available()
 {
   [[ ${functions[(i)zcl]} == 'zcl' ]]
@@ -372,4 +370,4 @@ function _irodolist::main()
   echo "zsh completion : ${(j@ @)zsh_ls_completion_array}"
 }
 
-#_irodolist::main $*
+_irodolist::main $*
