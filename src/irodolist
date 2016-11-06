@@ -274,13 +274,81 @@ function _irodolist::main()
   fi
 
   # Compile associated array
-  #IFS=$'\n' local -a compilation_results=($(zcl ${configuration_file_path} _irodolist::compile :target :foreground :background :attribute))
-  zcl ${configuration_file_path} _irodolist::compile :target :foreground :background :attribute
+  local -a compilation_results=("${(@f)$(zcl ${configuration_file_path} _irodolist::compile :target :foreground :background :attribute)}")
 
   # Build each config style value
+  local line
   local -A compilation_result
+  local -a ls_colors_array
+  local -a zsh_ls_completion_array
+  local -a target_list
 
-  ## LS_COLORS
+  for line in ${compilation_results}
+  do
+    eval "compilation_result=(${line})"
+
+    # Construct target list
+    target_list+=("${compilation_result[target]}")
+
+    # LS_COLORS
+    ls_colors_array+=("${compilation_result[target]}=${compilation_result[ansi_color]}")
+
+    # Zsh completion colors
+    zsh_ls_completion_array+=("'${compilation_result[target]}=${compilation_result[ansi_color]}'")
+  done
+
+  # target, default_value
+  local -a lscolors_ordered_keys=(
+    'di'
+    'ln'
+    'so'
+    'pi'
+    'ex'
+    'bd'
+    'cd'
+    'su'
+    'sg'
+    'tw'
+    'ow'
+  )
+  local -A lscolors_ordered_items=(
+    'di' 'Ex'
+    'ln' 'Fx'
+    'so' 'Cx'
+    'pi' 'Dx'
+    'ex' 'Bx'
+    'bd' 'eg'
+    'cd' 'ed'
+    'su' 'ab'
+    'sg' 'ag'
+    'tw' 'ac'
+    'ow' 'ed'
+  )
+
+  local ordered_target_value
+  local -i target_id
+  local -i is_exist
+  local lscolors_items=''
+
+  for ordered_target_value in ${lscolors_ordered_keys}
+  do
+    # Check item in-order
+    is_exist=${+target_list[(r)${ordered_target_value}]}
+
+    # If exist, use content value. Otherwise, use default value
+    if (( ${is_exist} == 1 ))
+    then
+      target_id=${target_list[(i)${ordered_target_value}]}
+      eval "compilation_result=(${compilation_results[${target_id}]})"
+      lscolors_items+=${compilation_result[lscolor]}
+    else
+      lscolors_items+=${lscolors_ordered_items[${ordered_target_value}]}
+    fi
+  done
+
+  echo "LSCOLORS       : ${lscolors_items}"
+  echo "LS_COLORS      : ${(j@:@)ls_colors_array}"
+  echo "zsh completion : ${(j@ @)zsh_ls_completion_array}"
 }
 
 #_irodolist::main $*
