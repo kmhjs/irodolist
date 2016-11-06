@@ -157,7 +157,9 @@ function _irodolist::ansi_color()
     bg_ansi+=';'
   fi
 
-  echo -n "${attribute_ansi}${fg_ansi}${bg_ansi}"
+  # Remove trailing ;
+  local color_definition="${attribute_ansi}${fg_ansi}${bg_ansi}"
+  echo -n ${color_definition[1,-2]}
 }
 
 function _irodolist::text_color_name_to_lscolor_value()
