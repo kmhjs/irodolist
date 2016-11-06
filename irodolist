@@ -365,8 +365,8 @@ function _irodolist::main()
   done
 
   # Show result
-  echo "export LSCOLORS=${lscolors_items}"
-  echo "export LS_COLORS=${(j@:@)ls_colors_array}"
+  echo "export LSCOLORS='${lscolors_items}'"
+  echo "export LS_COLORS='${(j@:@)ls_colors_array}'"
   echo "zstyle ':completion:*' list-colors ${(j@ @)zsh_ls_completion_array}"
 }
 
