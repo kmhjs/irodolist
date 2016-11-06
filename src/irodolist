@@ -243,6 +243,46 @@ function _irodolist::target_name_conversion()
   echo -n ${target_name_conversion_table[${target_name}]}
 }
 
+function _irodolist::lscolors_ordered_keys()
+{
+  local -a ordered_keys=(
+    'di'
+    'ln'
+    'so'
+    'pi'
+    'ex'
+    'bd'
+    'cd'
+    'su'
+    'sg'
+    'tw'
+    'ow'
+  )
+
+  echo -n ${ordered_keys}
+}
+
+function _irodolist::lscolors_default_value()
+{
+  local target=${1}
+
+  local -A lscolors_default_values=(
+    'di' 'Ex'
+    'ln' 'Fx'
+    'so' 'Cx'
+    'pi' 'Dx'
+    'ex' 'Bx'
+    'bd' 'eg'
+    'cd' 'ed'
+    'su' 'ab'
+    'sg' 'ag'
+    'tw' 'ac'
+    'ow' 'ed'
+  )
+
+  echo -n ${lscolors_default_values[${target}]}
+}
+
 function _irodolist::compile()
 {
   local target=${1}
@@ -250,10 +290,12 @@ function _irodolist::compile()
   local bg_color_name=${3}
   local text_attribute_name=${4}
 
+  # Convert to value
   local ansi_color_expression=$(_irodolist::ansi_color ${fg_color_name} ${bg_color_name} ${text_attribute_name})
   local lscolor_expression=$(_irodolist::lscolor ${fg_color_name} ${bg_color_name} ${text_attribute_name})
   local target_config_expression=$(_irodolist::target_name_conversion ${target})
 
+  # Return as associated value content
   echo "target '${target_config_expression}' ansi_color '${ansi_color_expression}' lscolor '${lscolor_expression}'"
 }
 
@@ -283,53 +325,29 @@ function _irodolist::main()
   local -a zsh_ls_completion_array
   local -a target_list
 
+  # Construct LS_COLORS and zsh completion color list
+  # and target value list
   for line in ${compilation_results}
   do
     eval "compilation_result=(${line})"
-
-    # Construct target list
-    target_list+=("${compilation_result[target]}")
 
     # LS_COLORS
     ls_colors_array+=("${compilation_result[target]}=${compilation_result[ansi_color]}")
 
     # Zsh completion colors
     zsh_ls_completion_array+=("'${compilation_result[target]}=${compilation_result[ansi_color]}'")
+
+    # Construct target list
+    target_list+=("${compilation_result[target]}")
   done
 
   # target, default_value
-  local -a lscolors_ordered_keys=(
-    'di'
-    'ln'
-    'so'
-    'pi'
-    'ex'
-    'bd'
-    'cd'
-    'su'
-    'sg'
-    'tw'
-    'ow'
-  )
-  local -A lscolors_ordered_items=(
-    'di' 'Ex'
-    'ln' 'Fx'
-    'so' 'Cx'
-    'pi' 'Dx'
-    'ex' 'Bx'
-    'bd' 'eg'
-    'cd' 'ed'
-    'su' 'ab'
-    'sg' 'ag'
-    'tw' 'ac'
-    'ow' 'ed'
-  )
-
   local ordered_target_value
+  local lscolors_items=''
   local -i target_id
   local -i is_exist
-  local lscolors_items=''
 
+  local -a lscolors_ordered_keys=($(_irodolist::lscolors_ordered_keys))
   for ordered_target_value in ${lscolors_ordered_keys}
   do
     # Check item in-order
@@ -341,11 +359,14 @@ function _irodolist::main()
       target_id=${target_list[(i)${ordered_target_value}]}
       eval "compilation_result=(${compilation_results[${target_id}]})"
       lscolors_items+=${compilation_result[lscolor]}
+
     else
-      lscolors_items+=${lscolors_ordered_items[${ordered_target_value}]}
+      lscolors_items+=$(_irodolist::lscolors_default_value ${ordered_target_value})
+
     fi
   done
 
+  # Show result
   echo "LSCOLORS       : ${lscolors_items}"
   echo "LS_COLORS      : ${(j@:@)ls_colors_array}"
   echo "zsh completion : ${(j@ @)zsh_ls_completion_array}"
