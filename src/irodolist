@@ -159,7 +159,7 @@ function _irodolist::ansi_color()
     bg_ansi+=';'
   fi
 
-  echo -n "\e[${attribute_ansi}${fg_ansi}${bg_ansi}m"
+  echo -n "${attribute_ansi}${fg_ansi}${bg_ansi}"
 }
 
 function _irodolist::text_color_name_to_lscolor_value()
@@ -217,27 +217,70 @@ function _irodolist::lscolor()
   echo -n "${fg_color}${bg_color}"
 }
 
-function _irodolist::color()
+function _irodolist::target_name_conversion()
+{
+  local target_name=${1}
+
+  local -A target_name_conversion_table=(
+    directory                    'di'
+    symbolic_link                'ln'
+    socket                       'so'
+    pipe                         'pi'
+    executable                   'ex'
+    block_device                 'bd'
+    character_device             'cd'
+    executable_setuid            'su'
+    executable_setgid            'sg'
+    writable_directory_stickybit 'tw'
+    writable_directory           'ow'
+  )
+
+  if [[ ${target_name_conversion_table[(i)${target_name}]} != ${target_name} ]]
+  then
+    return 1
+  fi
+
+  echo -n ${target_name_conversion_table[${target_name}]}
+}
+
+function _irodolist::compile()
 {
   local target=${1}
   local fg_color_name=${2}
   local bg_color_name=${3}
   local text_attribute_name=${4}
 
-  case ${target} in
-    --ansi)
-      _irodolist::ansi_color ${fg_color_name} ${bg_color_name} ${text_attribute_name}
-      ;;
+  local ansi_color_expression=$(_irodolist::ansi_color ${fg_color_name} ${bg_color_name} ${text_attribute_name})
+  local lscolor_expression=$(_irodolist::lscolor ${fg_color_name} ${bg_color_name} ${text_attribute_name})
+  local target_config_expression=$(_irodolist::target_name_conversion ${target})
 
-    --lscolor)
-      _irodolist::lscolor ${fg_color_name} ${bg_color_name} ${text_attribute_name}
-      ;;
-
-    *)
-      echo "No conversion tasks were found for ${target}." 1>&2
-      return 1
-      ;;
-  esac
-
-  return 0
+  echo "target '${target_config_expression}' ansi_color '${ansi_color_expression}' lscolor '${lscolor_expression}'"
 }
+
+function _irodolist::main()
+{
+  # Verifies requirements
+  if ! _irodolist::is_zcl_available
+  then
+    echo 'zcl is not available.' 1>&2
+    return 1
+  fi
+
+  local configuration_file_path=${1}
+  if [[ ! -f ${configuration_file_path} ]]
+  then
+    echo "Configuration file not found in ${configuration_file_path}." 1>&2
+    return 1
+  fi
+
+  # Compile associated array
+  #IFS=$'\n' local -a compilation_results=($(zcl ${configuration_file_path} _irodolist::compile :target :foreground :background :attribute))
+  zcl ${configuration_file_path} _irodolist::compile :target :foreground :background :attribute
+
+  # Build each config style value
+  local -A compilation_result
+
+  ## LS_COLORS
+}
+
+#_irodolist::main $*

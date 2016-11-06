@@ -1,0 +1,18 @@
+(
+  :target     directory
+  :foreground red
+  :background default
+  :attribute  bold
+)
+(
+  :target     symbolic_link
+  :foreground blue
+  :background default
+  :attribute  bold
+)
+(
+  :target     executable
+  :foreground green
+  :background default
+  :attribute  bold
+)
