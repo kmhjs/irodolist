@@ -1,0 +1,375 @@
+function _irodolist::is_zcl_available()
+{
+  [[ ${functions[(i)zcl]} == 'zcl' ]]
+  return $?
+}
+
+function _irodolist::text_attribute_names()
+{
+  local -a text_attributes=(
+    'normal'
+    'bold'
+  )
+
+  echo -n ${text_attributes}
+}
+
+function _irodolist::is_valid_text_attribute_name()
+{
+  local -a text_attribute_names=($(_irodolist::text_attribute_names))
+  local attribute_name=${1}
+
+  [[ ${text_attribute_names[(r)${attribute_name}]} == ${attribute_name} ]]
+  return $?
+}
+
+function _irodolist::text_attribute_name_to_ansi_color_id()
+{
+  local -a text_attribute_names=($(_irodolist::text_attribute_names))
+  local attribute_name=${1}
+
+  echo -n $((${text_attribute_names[(i)${attribute_name}]} - 1))
+}
+
+function _irodolist::text_attribute_name_to_ansi()
+{
+  local attribute_name=${1}
+
+  if [[ ${attribute_name} == 'default' ]]
+  then
+    echo -n '00'
+    return 0
+  fi
+
+  if ! _irodolist::is_valid_text_attribute_name ${attribute_name}
+  then
+    return 1
+  fi
+
+  echo -n "0$(_irodolist::text_attribute_name_to_ansi_color_id ${attribute_name})"
+
+  return 0
+}
+
+function _irodolist::text_color_names()
+{
+  local -a text_color_names=(
+    'black'
+    'red'
+    'green'
+    'yellow'
+    'blue'
+    'magenta'
+    'cyan'
+    'white'
+  )
+
+  echo -n ${text_color_names}
+}
+
+function _irodolist::is_valid_text_color_name()
+{
+  local -a text_color_names=($(_irodolist::text_color_names))
+  local color_name=${1}
+
+  [[ ${text_color_names[(r)${color_name}]} == ${color_name} ]]
+  return $?
+}
+
+function _irodolist::text_color_name_to_ansi_color_id()
+{
+  local -a text_color_names=($(_irodolist::text_color_names))
+  local color_name=${1}
+
+  echo -n $((${text_color_names[(i)${color_name}]} - 1))
+}
+
+function _irodolist::text_color_name_to_ansi()
+{
+  local color_name=${1}
+  local color_type=${2} # fg or bg are expected
+
+  if [[ ${color_name} == 'default' ]]
+  then
+    return 0
+  fi
+
+  # Validates color name
+  if ! _irodolist::is_valid_text_color_name ${color_name}
+  then
+    return 1
+  fi
+
+  # Converts color into ansi color value
+  local -i color_id=$(_irodolist::text_color_name_to_ansi_color_id ${color_name})
+  case ${color_type} in
+    fg)
+      echo -n "3${color_id}"
+      ;;
+    bg)
+      echo -n "4${color_id}"
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+
+  return 0
+}
+
+function _irodolist::text_fg_color_name_to_ansi()
+{
+  local color_name=${1}
+
+  _irodolist::text_color_name_to_ansi ${color_name} 'fg'
+  return $?
+}
+
+function _irodolist::text_bg_color_name_to_ansi()
+{
+  local color_name=${1}
+
+  _irodolist::text_color_name_to_ansi ${color_name} 'bg'
+  return $?
+}
+
+function _irodolist::ansi_color()
+{
+  local fg_color_name=${1}
+  local bg_color_name=${2}
+  local text_attribute_name=${3}
+
+  local attribute_ansi=$(_irodolist::text_attribute_name_to_ansi ${text_attribute_name})
+  if [[ -n ${attribute_ansi} ]]
+  then
+    attribute_ansi+=';'
+  fi
+
+  local fg_ansi=$(_irodolist::text_fg_color_name_to_ansi ${fg_color_name})
+  if [[ -n ${fg_ansi} ]]
+  then
+    fg_ansi+=';'
+  fi
+
+  local bg_ansi=$(_irodolist::text_bg_color_name_to_ansi ${bg_color_name})
+  if [[ -n ${bg_ansi} ]]
+  then
+    bg_ansi+=';'
+  fi
+
+  # Remove trailing ;
+  local color_definition="${attribute_ansi}${fg_ansi}${bg_ansi}"
+  echo -n ${color_definition[1,-2]}
+}
+
+function _irodolist::text_color_name_to_lscolor_value()
+{
+  local color_name=${1}
+  local attribute_name=${2}
+
+  if [[ ${color_name} == 'default' ]]
+  then
+    echo -n 'x'
+    return 0
+  fi
+
+  # Validates color name
+  if ! _irodolist::is_valid_text_color_name ${color_name}
+  then
+    return 1
+  fi
+
+  # Validates attribute
+  if ! _irodolist::is_valid_text_attribute_name ${attribute_name}
+  then
+    return 1
+  fi
+
+  # Converts color into ansi color value
+  local -i color_id=$(($(_irodolist::text_color_name_to_ansi_color_id ${color_name}) + 1))
+  local -a lscolor_entries=({a..h})
+
+  case ${attribute_name} in
+    normal)
+      echo -n ${(L)lscolor_entries[${color_id}]}
+      ;;
+
+    bold)
+      echo -n ${(U)lscolor_entries[${color_id}]}
+      ;;
+
+    *) # Unexpected pattern
+      ;;
+  esac
+
+  return 0
+}
+
+function _irodolist::lscolor()
+{
+  local fg_color_name=${1}
+  local bg_color_name=${2}
+  local text_attribute_name=${3}
+
+  local fg_color=$(_irodolist::text_color_name_to_lscolor_value ${fg_color_name} ${text_attribute_name})
+  local bg_color=$(_irodolist::text_color_name_to_lscolor_value ${bg_color_name} 'normal')
+
+  echo -n "${fg_color}${bg_color}"
+}
+
+function _irodolist::target_name_conversion()
+{
+  local target_name=${1}
+
+  local -A target_name_conversion_table=(
+    directory                    'di'
+    symbolic_link                'ln'
+    socket                       'so'
+    pipe                         'pi'
+    executable                   'ex'
+    block_device                 'bd'
+    character_device             'cd'
+    executable_setuid            'su'
+    executable_setgid            'sg'
+    writable_directory_stickybit 'tw'
+    writable_directory           'ow'
+  )
+
+  if [[ ${target_name_conversion_table[(i)${target_name}]} != ${target_name} ]]
+  then
+    return 1
+  fi
+
+  echo -n ${target_name_conversion_table[${target_name}]}
+}
+
+function _irodolist::lscolors_ordered_keys()
+{
+  local -a ordered_keys=(
+    'di'
+    'ln'
+    'so'
+    'pi'
+    'ex'
+    'bd'
+    'cd'
+    'su'
+    'sg'
+    'tw'
+    'ow'
+  )
+
+  echo -n ${ordered_keys}
+}
+
+function _irodolist::lscolors_default_value()
+{
+  local target=${1}
+
+  local -A lscolors_default_values=(
+    'di' 'Ex'
+    'ln' 'Fx'
+    'so' 'Cx'
+    'pi' 'Dx'
+    'ex' 'Bx'
+    'bd' 'eg'
+    'cd' 'ed'
+    'su' 'ab'
+    'sg' 'ag'
+    'tw' 'ac'
+    'ow' 'ed'
+  )
+
+  echo -n ${lscolors_default_values[${target}]}
+}
+
+function _irodolist::compile()
+{
+  local target=${1}
+  local fg_color_name=${2}
+  local bg_color_name=${3}
+  local text_attribute_name=${4}
+
+  # Convert to value
+  local ansi_color_expression=$(_irodolist::ansi_color ${fg_color_name} ${bg_color_name} ${text_attribute_name})
+  local lscolor_expression=$(_irodolist::lscolor ${fg_color_name} ${bg_color_name} ${text_attribute_name})
+  local target_config_expression=$(_irodolist::target_name_conversion ${target})
+
+  # Return as associated value content
+  echo "target '${target_config_expression}' ansi_color '${ansi_color_expression}' lscolor '${lscolor_expression}'"
+}
+
+function _irodolist::main()
+{
+  # Verifies requirements
+  if ! _irodolist::is_zcl_available
+  then
+    echo 'zcl is not available.' 1>&2
+    return 1
+  fi
+
+  local configuration_file_path=${1}
+  if [[ ! -f ${configuration_file_path} ]]
+  then
+    echo "Configuration file not found in ${configuration_file_path}." 1>&2
+    return 1
+  fi
+
+  # Compile associated array
+  local -a compilation_results=("${(@f)$(zcl ${configuration_file_path} _irodolist::compile :target :foreground :background :attribute)}")
+
+  # Build each config style value
+  local line
+  local -A compilation_result
+  local -a ls_colors_array
+  local -a zsh_ls_completion_array
+  local -a target_list
+
+  # Construct LS_COLORS and zsh completion color list
+  # and target value list
+  for line in ${compilation_results}
+  do
+    eval "compilation_result=(${line})"
+
+    # LS_COLORS
+    ls_colors_array+=("${compilation_result[target]}=${compilation_result[ansi_color]}")
+
+    # Zsh completion colors
+    zsh_ls_completion_array+=("'${compilation_result[target]}=${compilation_result[ansi_color]}'")
+
+    # Construct target list
+    target_list+=("${compilation_result[target]}")
+  done
+
+  # target, default_value
+  local ordered_target_value
+  local lscolors_items=''
+  local -i target_id
+  local -i is_exist
+
+  local -a lscolors_ordered_keys=($(_irodolist::lscolors_ordered_keys))
+  for ordered_target_value in ${lscolors_ordered_keys}
+  do
+    # Check item in-order
+    is_exist=${+target_list[(r)${ordered_target_value}]}
+
+    # If exist, use content value. Otherwise, use default value
+    if (( ${is_exist} == 1 ))
+    then
+      target_id=${target_list[(i)${ordered_target_value}]}
+      eval "compilation_result=(${compilation_results[${target_id}]})"
+      lscolors_items+=${compilation_result[lscolor]}
+
+    else
+      lscolors_items+=$(_irodolist::lscolors_default_value ${ordered_target_value})
+
+    fi
+  done
+
+  # Show result
+  echo "export LSCOLORS='${lscolors_items}'"
+  echo "export LS_COLORS='${(j@:@)ls_colors_array}'"
+  echo "zstyle ':completion:*' list-colors ${(j@ @)zsh_ls_completion_array}"
+}
+
+_irodolist::main $*
